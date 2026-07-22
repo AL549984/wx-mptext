@@ -7,6 +7,10 @@ export default defineNuxtConfig({
   modules: ['@vueuse/nuxt', '@nuxt/ui', 'nuxt-monaco-editor', 'nuxt-umami'],
   ssr: false,
   runtimeConfig: {
+    // 微信公众号后台会话采用滑动续期；私有部署可通过环境变量调整。
+    mpSessionTtlDays: process.env.NUXT_MP_SESSION_TTL_DAYS || '90',
+    // 可选固定 auth-key。设置后，重新扫码也不会改变外部 API 使用的 X-Auth-Key。
+    mpStableAuthKey: process.env.NUXT_MP_STABLE_AUTH_KEY || '',
     public: {
       aggridLicense: process.env.NUXT_AGGRID_LICENSE,
       // 会员/限速层（仅公开托管用；默认关闭，fork 私有部署无限速、无付费 UI）

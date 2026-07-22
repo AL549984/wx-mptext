@@ -26,7 +26,7 @@ export default defineEventHandler(async event => {
   // 登出后清理内存中的 cookie 缓存
   const authKey = getRequestHeader(event, 'X-Auth-Key') || parseCookies(event)['auth-key'];
   if (authKey) {
-    cookieStore.removeCookie(authKey);
+    await cookieStore.removeCookie(authKey);
   }
 
   return {

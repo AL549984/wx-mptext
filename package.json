@@ -14,7 +14,8 @@
     "format": "biome check --write",
     "postinstall": "nuxt prepare",
     "docker:build": "docker build --build-arg VERSION=$npm_package_version -t ghcr.io/wechat-article/wechat-article-exporter:$npm_package_version .",
-    "docker:publish": "docker push ghcr.io/wechat-article/wechat-article-exporter:$npm_package_version"
+    "docker:publish": "docker push ghcr.io/wechat-article/wechat-article-exporter:$npm_package_version",
+    "test:session": "node --test test/account_cookie.test.mjs test/mp_session.test.mjs"
   },
   "dependencies": {
     "@ag-grid-community/locale": "^34.0.0",
@@ -63,7 +64,8 @@
     "@types/turndown": "^5.0.5",
     "prettier": "^3.5.2",
     "tailwindcss-debug-screens": "^2.2.1",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "vue-tsc": "3.3.7"
   },
   "engines": {
     "node": ">=22"

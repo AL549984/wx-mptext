@@ -1,9 +1,12 @@
 import dayjs from 'dayjs';
 import { request } from '#shared/utils/request';
 import { getCookieFromResponse, getCookiesFromRequest } from '~/server/utils/CookieStore';
+import { getMpSessionTtlSeconds } from '~/server/utils/mp-session';
 import { proxyMpRequest } from '~/server/utils/proxy-request';
 
 export default defineEventHandler(async event => {
+  const runtimeConfig = useRuntimeConfig(event);
+  const sessionTtlSeconds = getMpSessionTtlSeconds(runtimeConfig.mpSessionTtlDays);
   const cookie = getCookiesFromRequest(event);
 
   const payload: Record<string, string | number> = {
@@ -53,7 +56,7 @@ export default defineEventHandler(async event => {
   const body = JSON.stringify({
     nickname: nick_name,
     avatar: head_img,
-    expires: dayjs().add(4, 'days').toString(),
+    expires: dayjs().add(sessionTtlSeconds, 'seconds').toString(),
   });
   const headers = new Headers(response.headers);
   headers.set('Content-Length', new TextEncoder().encode(body).length.toString());

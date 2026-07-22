@@ -2,17 +2,19 @@ import dayjs from 'dayjs';
 import { H3Event, parseCookies } from 'h3';
 import { v4 as uuidv4 } from 'uuid';
 import { isDev, USER_AGENT } from '~/config';
-import { RequestOptions } from '~/server/types';
+import type { RequestOptions } from '~/server/types';
 import { cookieStore, getCookieFromStore } from '~/server/utils/CookieStore';
 import { logRequest, logResponse } from '~/server/utils/logger';
+import { createAuthKeyCookie, getMpSessionTtlSeconds, resolveMpAuthKey } from '~/server/utils/mp-session';
 
 /**
  * 代理微信公众号请求
- * @description 备注：只有登录请求(`action=login`)中的 `set-cookie` 才会被写入到 CookieStore 中
+ * @description 登录时保存完整 cookie，后续成功请求合并微信新下发的 cookie 并滑动续期
  * @param options 请求参数
  */
 export async function proxyMpRequest(options: RequestOptions) {
   const runtimeConfig = useRuntimeConfig();
+  const sessionTtlSeconds = getMpSessionTtlSeconds(runtimeConfig.mpSessionTtlDays);
 
   const headers = new Headers({
     Referer: 'https://mp.weixin.qq.com/',
@@ -21,8 +23,9 @@ export async function proxyMpRequest(options: RequestOptions) {
     'Accept-Encoding': 'identity', // 禁用压缩，避免出现response.clone() bug
   });
 
-  // 优先读取参数中的 cookie，若无则从 CookieStore 中读取
-  const cookie: string | null = options.cookie || (await getCookieFromStore(options.event));
+  // 登录流程会显式传入 uuid cookie；其余请求才从 CookieStore 读取后台会话。
+  const storedCookie = options.cookie ? null : await getCookieFromStore(options.event);
+  const cookie: string | null = options.cookie || storedCookie;
   if (cookie) {
     headers.set('Cookie', cookie);
   }
@@ -72,7 +75,11 @@ export async function proxyMpRequest(options: RequestOptions) {
   else if (options.action === 'login') {
     // 提取出 token 和 cookies
     try {
-      const authKey = crypto.randomUUID().replace(/-/g, '');
+      const authKey = resolveMpAuthKey(
+        runtimeConfig.mpStableAuthKey,
+        getAuthKeyFromRequest(options.event),
+        crypto.randomUUID().replace(/-/g, '')
+      );
 
       const body = await mpResponse.clone().json();
       const redirectUrl = body?.redirect_url;
@@ -85,15 +92,14 @@ export async function proxyMpRequest(options: RequestOptions) {
         throw new Error(`redirect_url 中未找到 token 参数: ${redirectUrl}`);
       }
 
-      console.log('token', token);
-      const success = await cookieStore.setCookie(authKey, token, mpResponse.headers.getSetCookie());
+      const success = await cookieStore.setCookie(authKey, token, mpResponse.headers.getSetCookie(), sessionTtlSeconds);
       if (!success) {
         throw new Error('cookie 写入 KV 存储失败');
       }
       console.log('cookie 写入成功');
 
       setCookies = [
-        `auth-key=${authKey}; Path=/; Expires=${dayjs().add(4, 'days').toString()}; Secure; HttpOnly`,
+        createAuthKeyCookie(authKey, sessionTtlSeconds),
 
         // 登录成功后，删除浏览器的 uuid cookie
         `uuid=EXPIRED; Path=/; Expires=${dayjs().subtract(1, 'days').toString()}; Secure; HttpOnly`,
@@ -113,14 +119,26 @@ export async function proxyMpRequest(options: RequestOptions) {
   else if (options.action === 'switch_account') {
     const authKey = getAuthKeyFromRequest(options.event);
     if (authKey) {
-      setCookies = ['switch_account=1'];
+      setCookies.push('switch_account=1');
     }
   }
 
-  // 这里是否需要执行？
-  // 更新 CookieStore 中的 cookie
-  else {
-    // updateCookies(options.event, mpResponse.headers.getSetCookie());
+  // 普通后台请求成功后，合并微信新下发的 cookie，并重新写入 KV 实现滑动续期。
+  const requestPath = new URL(request.url).pathname;
+  const shouldRefreshSession =
+    storedCookie &&
+    options.action !== 'start_login' &&
+    options.action !== 'login' &&
+    requestPath !== '/cgi-bin/logout' &&
+    !(await mpSessionIsExpired(mpResponse, options.parseJson));
+  if (shouldRefreshSession) {
+    const authKey = getAuthKeyFromRequest(options.event);
+    if (authKey) {
+      const success = await cookieStore.updateCookie(authKey, mpResponse.headers.getSetCookie(), sessionTtlSeconds);
+      if (success) {
+        setCookies.push(createAuthKeyCookie(authKey, sessionTtlSeconds));
+      }
+    }
   }
 
   // 构造返回给客户端的响应
@@ -153,9 +171,25 @@ export function getAuthKeyFromRequest(event: H3Event): string {
   return authKey;
 }
 
-// function updateCookies(event: H3Event, cookies: string[]): void {
-//   const authKey = getAuthKeyFromRequest(event);
-//   if (authKey) {
-//     cookieStore.updateCookie(authKey, cookies);
-//   }
-// }
+async function mpSessionIsExpired(response: Response, parseJson = false): Promise<boolean> {
+  if (!response.ok) {
+    return true;
+  }
+
+  const responseUrl = response.url.toLowerCase();
+  if (responseUrl.includes('/cgi-bin/loginpage') || responseUrl.includes('t=wxm-login')) {
+    return true;
+  }
+
+  if (parseJson) {
+    try {
+      const body = await response.clone().json();
+      const ret = body?.base_resp?.ret ?? body?.ret;
+      return ret === 200003;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
