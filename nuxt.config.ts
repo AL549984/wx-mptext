@@ -44,6 +44,9 @@ export default defineNuxtConfig({
   },
   nitro: {
     minify: process.env.NODE_ENV === 'production',
+    // Cloudflare Workers 不支持本地 Chromium；排除 PDF 路由，避免把 Puppeteer
+    // 及其 TypeScript 编译器依赖打进 Worker，超过免费套餐 3 MiB 限制。
+    ignore: process.env.NITRO_PRESET === 'cloudflare_module' ? ['api/web/pdf/**'] : [],
     // 开启 wasm 支持（unwasm）：cgi 沙箱 @cf-wasm/quickjs 以 import 方式引入 .wasm 模块，
     // 需要该插件处理（含 edge/CF 约定的 `.wasm?module` 后缀），否则 rollup 无法加载 wasm。
     experimental: {
