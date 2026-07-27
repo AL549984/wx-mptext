@@ -13,5 +13,6 @@ export default defineEventHandler(async event => {
       random: new Date().getTime(),
     },
     cookie: cookie,
+    action: 'continue_login',
   });
 });

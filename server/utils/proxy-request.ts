@@ -5,6 +5,7 @@ import { isDev, USER_AGENT } from '~/config';
 import type { RequestOptions } from '~/server/types';
 import { cookieStore, getCookieFromStore } from '~/server/utils/CookieStore';
 import { logRequest, logResponse } from '~/server/utils/logger';
+import { cookiesForLoginClient, cookiesForLoginStore } from '~/server/utils/login-cookie';
 import { createAuthKeyCookie, getMpSessionTtlSeconds, resolveMpAuthKey } from '~/server/utils/mp-session';
 
 /**
@@ -63,10 +64,10 @@ export async function proxyMpRequest(options: RequestOptions) {
 
   let setCookies: string[] = [];
 
-  // 处理登录请求的 uuid cookie
-  if (options.action === 'start_login') {
-    // 提取出 uuid 这个 cookie，并透传给客户端
-    setCookies = mpResponse.headers.getSetCookie().filter(cookie => cookie.startsWith('uuid='));
+  // 扫码登录的每一步都可能刷新 Cookie。改写 Domain 后透传给浏览器，
+  // 使下一步请求携带同一份完整 Cookie jar。
+  if (options.action === 'start_login' || options.action === 'continue_login') {
+    setCookies = cookiesForLoginClient(mpResponse.headers.getSetCookie());
   }
 
   // 处理登录成功请求的 cookie
@@ -92,7 +93,8 @@ export async function proxyMpRequest(options: RequestOptions) {
         throw new Error(`redirect_url 中未找到 token 参数: ${redirectUrl}`);
       }
 
-      const success = await cookieStore.setCookie(authKey, token, mpResponse.headers.getSetCookie(), sessionTtlSeconds);
+      const loginCookies = cookiesForLoginStore(cookie || '', mpResponse.headers.getSetCookie());
+      const success = await cookieStore.setCookie(authKey, token, loginCookies, sessionTtlSeconds);
       if (!success) {
         throw new Error('cookie 写入 KV 存储失败');
       }

@@ -197,7 +197,7 @@ export async function getTokenFromStore(event: H3Event): Promise<string | null> 
 export function getCookiesFromRequest(event: H3Event): string {
   const cookies = parseCookies(event);
   return Object.keys(cookies)
-    .map(key => `${key}=${encodeURIComponent(cookies[key])}`)
+    .map(key => `${key}=${cookies[key]}`)
     .join(';');
 }
 

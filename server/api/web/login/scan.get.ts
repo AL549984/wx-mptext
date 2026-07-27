@@ -16,5 +16,6 @@ export default defineEventHandler(async event => {
       ajax: 1,
     },
     cookie: cookie,
+    action: 'continue_login',
   });
 });
