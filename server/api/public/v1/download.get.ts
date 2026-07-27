@@ -1,4 +1,5 @@
 import { urlIsValidMpArticle } from '#shared/utils';
+import { compactArticleHtml } from '#shared/utils/article-html';
 import { normalizeHtml, parseCgiDataNew } from '#shared/utils/html';
 import { createTurndownService } from '#shared/utils/markdown';
 import { USER_AGENT } from '~/config';
@@ -64,24 +65,25 @@ export default defineEventHandler(async event => {
       'User-Agent': USER_AGENT,
     },
   }).then(res => res.text());
+  const articleHtml = format === 'json' ? rawHtml : compactArticleHtml(rawHtml);
 
   switch (format) {
     case 'html':
-      return new Response(normalizeHtml(rawHtml, 'html'), {
+      return new Response(normalizeHtml(articleHtml, 'html'), {
         status: 200,
         headers: {
           'Content-Type': 'text/html; charset=UTF-8',
         },
       });
     case 'text':
-      return new Response(normalizeHtml(rawHtml, 'text'), {
+      return new Response(normalizeHtml(articleHtml, 'text'), {
         status: 200,
         headers: {
           'Content-Type': 'text/plain; charset=UTF-8',
         },
       });
     case 'markdown':
-      return new Response(createTurndownService().turndown(normalizeHtml(rawHtml, 'html')).trim(), {
+      return new Response(createTurndownService().turndown(normalizeHtml(articleHtml, 'html')).trim(), {
         status: 200,
         headers: {
           'Content-Type': 'text/markdown; charset=UTF-8',
