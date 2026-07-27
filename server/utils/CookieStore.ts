@@ -12,27 +12,20 @@ class CookieStore {
   private readonly maxSize: number = 1000;
 
   async getAccountCookie(authKey: string): Promise<AccountCookie | null> {
-    // 优先从本地内存取
-    let cachedAccountCookie = this.store.get(authKey);
-
-    if (cachedAccountCookie) {
-      // LRU: 访问时将条目移到末尾（最近使用）
-      this.store.delete(authKey);
-      this.store.set(authKey, cachedAccountCookie);
-      return cachedAccountCookie;
-    }
-
-    // 如果内存没有，则从 kv 数据库取
+    // Cloudflare 的不同 Worker isolate 各有一份内存。固定 auth-key
+    // 重新登录后，其他 isolate 可能仍缓存旧 Cookie，因此 KV 必须是事实来源。
     const cookieValue = await getMpCookie(authKey);
     if (!cookieValue) {
+      this.store.delete(authKey);
       return null;
     }
 
-    cachedAccountCookie = AccountCookie.create(cookieValue.token, cookieValue.cookies);
+    const accountCookie = AccountCookie.create(cookieValue.token, cookieValue.cookies);
+    this.store.delete(authKey);
     this.evictIfNeeded();
-    this.store.set(authKey, cachedAccountCookie);
+    this.store.set(authKey, accountCookie);
 
-    return cachedAccountCookie;
+    return accountCookie;
   }
 
   /**
