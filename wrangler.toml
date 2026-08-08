@@ -19,7 +19,7 @@ directory = "./.output/public/"
 binding = "ASSETS"
 
 [vars]
-NUXT_MP_SESSION_TTL_DAYS = "90"
+NUXT_MP_SESSION_TTL_DAYS = "3"
 
 # KV 命名空间：绑定名必须与 nuxt.config.ts 中 storage.kv.binding 一致（'KV'）
 [[kv_namespaces]]

@@ -8,7 +8,7 @@ export default defineNuxtConfig({
   ssr: false,
   runtimeConfig: {
     // 微信公众号后台会话采用滑动续期；私有部署可通过环境变量调整。
-    mpSessionTtlDays: process.env.NUXT_MP_SESSION_TTL_DAYS || '90',
+    mpSessionTtlDays: process.env.NUXT_MP_SESSION_TTL_DAYS || '3',
     // 可选固定 auth-key。设置后，重新扫码也不会改变外部 API 使用的 X-Auth-Key。
     mpStableAuthKey: process.env.NUXT_MP_STABLE_AUTH_KEY || '',
     public: {

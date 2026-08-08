@@ -82,7 +82,7 @@
 私有单账号部署可在环境变量中设置固定 API Key 和会话存储时间：
 
 ```dotenv
-NUXT_MP_SESSION_TTL_DAYS=90
+NUXT_MP_SESSION_TTL_DAYS=3
 NUXT_MP_STABLE_AUTH_KEY=请替换为32到128位随机字符串
 ```
 

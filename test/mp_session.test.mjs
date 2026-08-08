@@ -8,8 +8,9 @@ import {
   SECONDS_PER_DAY,
 } from '../server/utils/mp-session.ts';
 
-test('会话 TTL 默认 90 天，并接受正整数覆盖', () => {
+test('会话 TTL 默认 3 天，并接受正整数覆盖', () => {
   assert.equal(getMpSessionTtlSeconds(undefined), DEFAULT_MP_SESSION_TTL_SECONDS);
+  assert.equal(DEFAULT_MP_SESSION_TTL_SECONDS, 3 * SECONDS_PER_DAY);
   assert.equal(getMpSessionTtlSeconds('30'), 30 * SECONDS_PER_DAY);
   assert.equal(getMpSessionTtlSeconds('invalid'), DEFAULT_MP_SESSION_TTL_SECONDS);
 });
